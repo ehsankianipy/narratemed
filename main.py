@@ -86,6 +86,15 @@ async def structure(payload: dict) -> dict:
 async def websocket_transcribe(ws: WebSocket) -> None:
     await ws.accept()
 
+    # Heartbeat — sends a ping every 10s to prevent Safari timeout
+    # during long Whisper transcriptions
+    async def heartbeat() -> None:
+        while True:
+            await asyncio.sleep(10)
+            await _send(ws, {"type": "ping"})
+
+    heartbeat_task = asyncio.create_task(heartbeat())
+
     buf: np.ndarray = np.zeros(0, dtype=np.float32)
     interval_samples = SAMPLE_RATE * TRANSCRIPTION_INTERVAL
     overlap_samples = SAMPLE_RATE * OVERLAP_SECONDS
@@ -144,8 +153,10 @@ async def websocket_transcribe(ws: WebSocket) -> None:
     except Exception as e:
         traceback.print_exc()
         await _send(ws, {"type": "status", "message": f"Error: {str(e)}"})
+    finally:
+        heartbeat_task.cancel()
 
-
+        
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 
