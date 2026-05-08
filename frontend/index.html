@@ -20,70 +20,111 @@
     header {
       background: #fff;
       border-bottom: 1px solid #e5e5e5;
-      padding: 14px 28px;
+      padding: 12px 24px;
       display: flex;
       align-items: center;
       justify-content: space-between;
     }
-    .logo { font-size: 17px; font-weight: 600; letter-spacing: -0.3px; }
+    .logo { font-size: 16px; font-weight: 600; letter-spacing: -0.3px; }
     .logo span { color: #0b7a5e; }
     .conn-badge {
       font-size: 12px; padding: 3px 10px; border-radius: 20px;
-      font-weight: 500; background: #f0f0f0; color: #666; transition: all 0.3s;
+      font-weight: 500; background: #f0f0f0; color: #666;
     }
     .conn-badge.connected { background: #e6f4ef; color: #0b7a5e; }
     .conn-badge.error     { background: #fdecea; color: #c0392b; }
 
     /* ── Critical banner ─────────────────────────────────────────────────── */
-    .alert-wrap { padding: 0 28px; padding-top: 14px; max-width: 1400px; margin: 0 auto; width: 100%; }
+    .banner-wrap { padding: 0 24px; padding-top: 12px; max-width: 1500px; margin: 0 auto; width: 100%; }
     .critical-banner {
       display: none; background: #fdecea; border: 1px solid #f5b7b1;
-      border-radius: 8px; padding: 10px 16px; font-size: 13px;
+      border-radius: 8px; padding: 10px 14px; font-size: 13px;
       color: #922b21; font-weight: 500; align-items: center; gap: 8px;
     }
     .critical-banner.visible { display: flex; }
+
+    /* ── Patient info bar ────────────────────────────────────────────────── */
+    .patient-bar {
+      background: #fff;
+      border-bottom: 1px solid #e5e5e5;
+      padding: 10px 24px;
+    }
+    .patient-bar-inner {
+      max-width: 1500px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 1fr 100px 140px 1fr;
+      gap: 10px;
+      align-items: center;
+    }
+    .patient-field {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .patient-field label {
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #999;
+    }
+    .patient-field input {
+      font-size: 13px;
+      border: 1px solid #e5e5e5;
+      border-radius: 6px;
+      padding: 6px 10px;
+      color: #1a1a1a;
+      background: #fafafa;
+      font-family: inherit;
+      outline: none;
+    }
+    .patient-field input:focus {
+      border-color: #0b7a5e;
+      background: #fff;
+    }
+    .patient-field input::placeholder { color: #ccc; }
 
     /* ── Main grid ───────────────────────────────────────────────────────── */
     main {
       flex: 1;
       display: grid;
-      grid-template-columns: 240px 1fr 1fr;
-      gap: 16px;
-      padding: 16px 28px 28px;
-      max-width: 1400px;
+      grid-template-columns: 220px 1fr 1fr;
+      gap: 14px;
+      padding: 14px 24px 24px;
+      max-width: 1500px;
       width: 100%;
       margin: 0 auto;
     }
     @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
 
-    /* ── Panel shared ────────────────────────────────────────────────────── */
+    /* ── Panel ───────────────────────────────────────────────────────────── */
     .panel {
       background: #fff;
       border: 1px solid #e5e5e5;
       border-radius: 10px;
-      padding: 18px 20px;
+      padding: 16px 18px;
       display: flex;
       flex-direction: column;
     }
     .panel-title {
       font-size: 11px; font-weight: 600; text-transform: uppercase;
-      letter-spacing: 0.06em; color: #999; margin-bottom: 14px;
+      letter-spacing: 0.06em; color: #999; margin-bottom: 12px;
     }
 
     /* ── Control panel ───────────────────────────────────────────────────── */
-    .control-panel { align-items: center; gap: 16px; }
+    .control-panel { align-items: center; gap: 14px; }
 
     .mic-btn {
-      width: 72px; height: 72px; border-radius: 50%; border: none;
+      width: 68px; height: 68px; border-radius: 50%; border: none;
       background: #0b7a5e; color: #fff; cursor: pointer;
       display: flex; align-items: center; justify-content: center;
-      transition: all 0.2s; box-shadow: 0 2px 12px rgba(11,122,94,0.25);
+      transition: all 0.2s; box-shadow: 0 2px 10px rgba(11,122,94,0.25);
     }
     .mic-btn:hover { transform: scale(1.05); }
     .mic-btn:active { transform: scale(0.97); }
     .mic-btn.recording {
       background: #c0392b;
-      box-shadow: 0 2px 12px rgba(192,57,43,0.35);
       animation: pulse 1.5s infinite;
     }
     .mic-btn.disabled { background: #ccc; cursor: not-allowed; box-shadow: none; }
@@ -94,108 +135,115 @@
       100% { box-shadow: 0 0 0 0 rgba(192,57,43,0); }
     }
 
-    .status-line { font-size: 12px; color: #888; text-align: center; min-height: 16px; }
+    .status-line { font-size: 12px; color: #888; text-align: center; }
     .status-line.transcribing { color: #0b7a5e; font-weight: 500; }
-    .timer { font-size: 13px; color: #aaa; font-variant-numeric: tabular-nums; }
+    .timer { font-size: 13px; color: #bbb; font-variant-numeric: tabular-nums; }
 
     .stats { display: flex; gap: 8px; width: 100%; }
     .stat {
-      flex: 1; background: #f8f8f8; border-radius: 8px;
-      padding: 8px 10px; text-align: center;
+      flex: 1; background: #f8f8f8; border-radius: 7px;
+      padding: 7px 8px; text-align: center;
     }
-    .stat-val { font-size: 20px; font-weight: 500; color: #1a1a1a; line-height: 1; }
-    .stat-lbl { font-size: 10px; color: #999; margin-top: 3px; }
+    .stat-val { font-size: 19px; font-weight: 500; color: #1a1a1a; line-height: 1; }
+    .stat-lbl { font-size: 10px; color: #aaa; margin-top: 3px; }
 
     .divider { width: 100%; height: 1px; background: #f0f0f0; }
 
-    /* ── Transcript panel ────────────────────────────────────────────────── */
-    .transcript-header {
-      display: flex; align-items: center;
-      justify-content: space-between; margin-bottom: 12px;
+    .flag-bar-wrap { width: 100%; }
+    .flag-bar-label { font-size: 11px; color: #bbb; margin-bottom: 4px; display: flex; justify-content: space-between; }
+    .flag-bar-track { height: 3px; background: #f0f0f0; border-radius: 2px; overflow: hidden; }
+    .flag-bar-fill { height: 100%; background: #e0a840; border-radius: 2px; width: 0%; transition: width 0.4s; }
+
+    .nlp-flags { margin-top: 8px; display: flex; flex-direction: column; gap: 4px; }
+    .nlp-flag {
+      font-size: 11px; padding: 5px 9px; border-radius: 5px; line-height: 1.4;
     }
+    .nlp-flag.warning  { background: #fffbec; color: #7a5000; border: 1px solid #f5e0a0; }
+    .nlp-flag.critical { background: #fdecea; color: #922b21; border: 1px solid #f5b7b1; }
+
+    /* ── Transcript ──────────────────────────────────────────────────────── */
+    .transcript-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
     .clear-btn {
-      font-size: 11px; color: #999; background: none;
-      border: 1px solid #e5e5e5; border-radius: 5px;
-      padding: 3px 8px; cursor: pointer;
+      font-size: 11px; color: #aaa; background: none;
+      border: 1px solid #e5e5e5; border-radius: 5px; padding: 3px 8px; cursor: pointer;
     }
     .clear-btn:hover { background: #f5f5f5; }
 
     .transcript-body {
-      flex: 1; min-height: 260px; max-height: 380px;
-      overflow-y: auto; font-size: 14px; line-height: 1.8;
-      color: #1a1a1a; padding: 2px 0;
+      flex: 1; min-height: 260px; max-height: 400px;
+      overflow-y: auto; font-size: 14px; line-height: 1.8; color: #1a1a1a;
     }
     .transcript-body:empty::before {
-      content: "Your dictation will appear here as you speak...";
+      content: "Your dictation will appear here...";
       color: #ccc; font-style: italic; font-size: 13px;
     }
-
     .word { display: inline; }
     .word.flagged {
       color: #b06c00; background: #fff8ec;
       border-radius: 3px; padding: 1px 3px; cursor: help;
       border-bottom: 1.5px solid #e0a840;
     }
-    .chunk-sep { display: block; height: 1px; background: #f5f5f5; margin: 6px 0; }
-
-    .flag-bar-wrap { margin-top: 10px; padding-top: 10px; border-top: 1px solid #f0f0f0; }
-    .flag-bar-label {
-      font-size: 11px; color: #aaa; margin-bottom: 4px;
-      display: flex; justify-content: space-between;
-    }
-    .flag-bar-track { height: 3px; background: #f0f0f0; border-radius: 2px; overflow: hidden; }
-    .flag-bar-fill { height: 100%; background: #e0a840; border-radius: 2px; width: 0%; transition: width 0.4s; }
-
-    /* NLP flags list */
-    .nlp-flags { margin-top: 10px; display: flex; flex-direction: column; gap: 5px; }
-    .nlp-flag {
-      font-size: 11px; padding: 5px 10px; border-radius: 6px;
-      line-height: 1.4;
-    }
-    .nlp-flag.warning  { background: #fffbec; color: #7a5000; border: 1px solid #f5e0a0; }
-    .nlp-flag.critical { background: #fdecea; color: #922b21; border: 1px solid #f5b7b1; }
+    .chunk-sep { display: block; height: 1px; background: #f5f5f5; margin: 5px 0; }
 
     /* ── Structure panel ─────────────────────────────────────────────────── */
-    .structure-panel { gap: 0; }
-
     .structure-btn {
-      width: 100%; padding: 10px; background: #0b7a5e; color: #fff;
-      border: none; border-radius: 8px; font-size: 13px; font-weight: 500;
-      cursor: pointer; margin-bottom: 14px; transition: background 0.2s;
-      font-family: inherit;
+      width: 100%; padding: 9px; background: #0b7a5e; color: #fff;
+      border: none; border-radius: 7px; font-size: 13px; font-weight: 500;
+      cursor: pointer; margin-bottom: 12px; font-family: inherit; transition: background 0.2s;
     }
     .structure-btn:hover { background: #096b52; }
     .structure-btn:disabled { background: #aaa; cursor: not-allowed; }
 
     .structure-body {
-      flex: 1; min-height: 260px; max-height: 440px;
-      overflow-y: auto; font-size: 13px; line-height: 1.8;
-      color: #1a1a1a; white-space: pre-wrap; font-family: "Menlo", "Monaco", monospace;
+      flex: 1; min-height: 260px; max-height: 460px; overflow-y: auto;
+      font-size: 12.5px; line-height: 1.8; color: #1a1a1a;
+      white-space: pre-wrap; font-family: "Menlo", "Monaco", monospace;
     }
     .structure-body:empty::before {
-      content: "Click 'Structure report' after dictating to generate a formatted report...";
+      content: "Fill in patient details above, dictate, then click Structure report...";
       color: #ccc; font-style: italic; font-size: 12px; font-family: inherit;
     }
 
-    .copy-btn {
-      margin-top: 10px; padding-top: 10px; border-top: 1px solid #f0f0f0;
-      display: flex; justify-content: flex-end; gap: 8px;
-    }
-    .copy-btn button {
+    .copy-row { margin-top: 10px; padding-top: 10px; border-top: 1px solid #f0f0f0; display: flex; justify-content: flex-end; gap: 8px; }
+    .copy-row button {
       font-size: 11px; color: #888; background: none; border: 1px solid #e5e5e5;
       border-radius: 5px; padding: 4px 10px; cursor: pointer; font-family: inherit;
     }
-    .copy-btn button:hover { background: #f5f5f5; }
+    .copy-row button:hover { background: #f5f5f5; }
   </style>
 </head>
 <body>
 
+  <!-- Header -->
   <header>
     <div class="logo">Narrate<span>Rad</span></div>
     <div class="conn-badge" id="connBadge">Connecting...</div>
   </header>
 
-  <div class="alert-wrap">
+  <!-- Patient info bar -->
+  <div class="patient-bar">
+    <div class="patient-bar-inner">
+      <div class="patient-field">
+        <label>Patient Name</label>
+        <input id="patientName" type="text" placeholder="Full name" />
+      </div>
+      <div class="patient-field">
+        <label>Age</label>
+        <input id="patientAge" type="text" placeholder="e.g. 45Y" />
+      </div>
+      <div class="patient-field">
+        <label>MR Number</label>
+        <input id="mrNumber" type="text" placeholder="MR-XXXX" />
+      </div>
+      <div class="patient-field">
+        <label>Referring Physician</label>
+        <input id="referringPhysician" type="text" placeholder="Dr. Name" />
+      </div>
+    </div>
+  </div>
+
+  <!-- Critical alert -->
+  <div class="banner-wrap">
     <div class="critical-banner" id="criticalBanner">
       <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
         <path d="M8 1L15 14H1L8 1Z" stroke="#922b21" stroke-width="1.5" fill="none"/>
@@ -206,14 +254,14 @@
     </div>
   </div>
 
+  <!-- Main -->
   <main>
 
-    <!-- Col 1: Controls -->
+    <!-- Controls -->
     <div class="panel control-panel">
       <div class="panel-title">Controls</div>
-
       <button class="mic-btn disabled" id="micBtn" onclick="toggleMic()">
-        <svg width="28" height="28" viewBox="0 0 24 24" fill="none"
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none"
              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
           <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
@@ -221,10 +269,8 @@
           <line x1="8" y1="23" x2="16" y2="23"/>
         </svg>
       </button>
-
       <div class="status-line" id="statusLine">Waiting...</div>
       <div class="timer" id="timer">00:00</div>
-
       <div class="stats">
         <div class="stat">
           <div class="stat-val" id="wordCount">0</div>
@@ -235,10 +281,8 @@
           <div class="stat-lbl">Flagged</div>
         </div>
       </div>
-
       <div class="divider"></div>
-
-      <div class="flag-bar-wrap" style="width:100%;margin-top:0;padding-top:0;border-top:none">
+      <div class="flag-bar-wrap">
         <div class="flag-bar-label">
           <span>Confidence</span>
           <span id="flagRatePct">0%</span>
@@ -247,11 +291,10 @@
           <div class="flag-bar-fill" id="flagBarFill"></div>
         </div>
       </div>
-
       <div class="nlp-flags" id="nlpFlags"></div>
     </div>
 
-    <!-- Col 2: Live transcript -->
+    <!-- Transcript -->
     <div class="panel">
       <div class="transcript-header">
         <div class="panel-title" style="margin-bottom:0">Live transcript</div>
@@ -260,14 +303,14 @@
       <div class="transcript-body" id="transcriptBody"></div>
     </div>
 
-    <!-- Col 3: Structured report -->
-    <div class="panel structure-panel">
-      <div class="panel-title">Structured report</div>
+    <!-- Structured report -->
+    <div class="panel">
+      <div class="panel-title">Preliminary report — MT handover</div>
       <button class="structure-btn" id="structureBtn" onclick="structureReport()">
         Structure report
       </button>
       <div class="structure-body" id="structuredReport"></div>
-      <div class="copy-btn">
+      <div class="copy-row">
         <button onclick="copyReport()">Copy report</button>
       </div>
     </div>
@@ -283,7 +326,6 @@
     function connectWS() {
       ws = new WebSocket("ws://localhost:8000/ws");
       ws.binaryType = "arraybuffer";
-
       ws.onopen = () => {
         setBadge("Connected", "connected");
         document.getElementById("micBtn").classList.remove("disabled");
@@ -316,7 +358,7 @@
       }
     }
 
-    // ── Mic / Audio ─────────────────────────────────────────────────────────
+    // ── Mic ─────────────────────────────────────────────────────────────────
     async function toggleMic() {
       if (document.getElementById("micBtn").classList.contains("disabled")) return;
       recording ? stopRecording() : await startRecording();
@@ -356,7 +398,7 @@
       stopTimer();
     }
 
-    // ── Transcript rendering ────────────────────────────────────────────────
+    // ── Transcript ──────────────────────────────────────────────────────────
     function appendWords(words) {
       const body = document.getElementById("transcriptBody");
       if (body.innerHTML.trim()) {
@@ -389,12 +431,10 @@
     function showNlpFlags(flags) {
       const container = document.getElementById("nlpFlags");
       flags.forEach(f => {
-        // Show critical ones in the banner
         if (f.severity === "critical") {
           document.getElementById("criticalMessage").textContent = f.message;
           document.getElementById("criticalBanner").classList.add("visible");
         }
-        // Show all as inline flags in the sidebar
         const el = document.createElement("div");
         el.className = "nlp-flag " + f.severity;
         el.textContent = f.message;
@@ -402,7 +442,7 @@
       });
     }
 
-    // ── Critical keywords (client-side fast check) ──────────────────────────
+    // ── Critical keywords ───────────────────────────────────────────────────
     const CRITICAL_TERMS = [
       "pneumothorax", "tension pneumothorax", "pulmonary embolism",
       "aortic dissection", "haemorrhage", "hemorrhage", "cauda equina",
@@ -428,13 +468,19 @@
       const out = document.getElementById("structuredReport");
       btn.textContent = "Structuring...";
       btn.disabled = true;
-      out.textContent = "Generating structured report...";
+      out.textContent = "Generating preliminary report...";
 
       try {
         const res = await fetch("/structure", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text })
+          body: JSON.stringify({
+            text,
+            patient_name:         document.getElementById("patientName").value.trim(),
+            patient_age:          document.getElementById("patientAge").value.trim(),
+            mr_number:            document.getElementById("mrNumber").value.trim(),
+            referring_physician:  document.getElementById("referringPhysician").value.trim(),
+          })
         });
         const data = await res.json();
         out.textContent = data.structured || data.error || "No output returned.";
@@ -450,9 +496,9 @@
       const text = document.getElementById("structuredReport").textContent;
       if (!text) return;
       navigator.clipboard.writeText(text).then(() => {
-        const btns = document.querySelectorAll(".copy-btn button");
-        btns[0].textContent = "Copied!";
-        setTimeout(() => btns[0].textContent = "Copy report", 1500);
+        const btn = document.querySelector(".copy-row button");
+        btn.textContent = "Copied!";
+        setTimeout(() => btn.textContent = "Copy report", 1500);
       });
     }
 
@@ -481,11 +527,10 @@
     function stopTimer() { clearInterval(timerInterval); }
 
     // ── Helpers ─────────────────────────────────────────────────────────────
-    function setStatus(msg) { document.getElementById("statusLine").textContent = msg; }
+    function setStatus(m) { document.getElementById("statusLine").textContent = m; }
     function setBadge(label, cls) {
       const el = document.getElementById("connBadge");
-      el.textContent = label;
-      el.className = "conn-badge " + cls;
+      el.textContent = label; el.className = "conn-badge " + cls;
     }
 
     connectWS();
