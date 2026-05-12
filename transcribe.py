@@ -37,7 +37,7 @@ MIN_AUDIO_SECONDS: float = 1.0
 MLX_MODEL_REPO: str = "mlx-community/whisper-large-v3-mlx"
 
 # Windows / CPU model — medium gives the best speed/accuracy balance on CPU
-FW_MODEL_SIZE: str = "medium"
+FW_MODEL_SIZE: str = "small"
 
 RADIOLOGY_PROMPT: str = (
     "Radiology report dictation. "
