@@ -5,7 +5,7 @@
 # ─────────────────────────────────────────────────────────────────────────────
 
 $ErrorActionPreference = "Stop"
-$REPO = "https://github.com/ehsankianipy/narraterad.git"
+$REPO = "https://github.com/ehsankianipy/narratemed.git"
 $INSTALL_DIR = "$env:USERPROFILE\narraterad"
 
 function Write-Step { param($msg) Write-Host "`n>> $msg" -ForegroundColor Cyan }

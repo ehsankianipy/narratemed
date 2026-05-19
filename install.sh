@@ -1,12 +1,12 @@
 #!/bin/bash
 # ─────────────────────────────────────────────────────────────
 # NarrateRad installer — Apple Silicon Mac
-# Run with: curl -fsSL https://raw.githubusercontent.com/ehsankianipy/narraterad/main/install.sh | bash
+# Run with: curl -fsSL https://raw.githubusercontent.com/ehsankianipy/narratemed/main/install.sh | bash
 # ─────────────────────────────────────────────────────────────
 
 set -e
 
-REPO="https://github.com/ehsankianipy/narraterad.git"
+REPO="https://github.com/ehsankianipy/narratemed.git"
 INSTALL_DIR="$HOME/narraterad"
 BOLD=$(tput bold 2>/dev/null || echo "")
 RESET=$(tput sgr0 2>/dev/null || echo "")
