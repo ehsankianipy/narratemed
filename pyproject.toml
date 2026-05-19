@@ -1,7 +1,7 @@
 [project]
-name = "narraterad"
-version = "0.1.0"
-description = "Radiology voice dictation and report structuring"
+name = "narratemed"
+version = "0.2.0"
+description = "Medical voice dictation and report structuring — Radiology and Histopathology"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [

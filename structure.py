@@ -19,6 +19,9 @@ import anthropic
 
 MODEL: str = "claude-haiku-4-5"
 
+SPECIALTY_RADIOLOGY  = "radiology"
+SPECIALTY_HISTOPATH  = "histopath"
+
 
 # ── Patient info ──────────────────────────────────────────────────────────────
 
@@ -80,6 +83,48 @@ Strict rules:
 - Output the structured report only — no commentary or preamble"""
 
 
+# ── Histopathology system prompt ─────────────────────────────────────────────
+
+HISTOPATH_SYSTEM_PROMPT = """You are a pathology report assistant preparing a preliminary dictation for a Medical Transcriptionist (MT). Your task is to structure raw dictation into a clear, well-organised preliminary report.
+
+Output the report using exactly these section headers in this order:
+
+SPECIMEN TYPE:
+[The type of specimen received — e.g. core biopsy, excision, resection, smear. Include anatomical site and laterality if stated.]
+
+CLINICAL INFORMATION:
+[The clinical context and reason for the specimen. Write "Not provided" if not mentioned.]
+
+GROSS DESCRIPTION:
+[Macroscopic findings — size, colour, consistency, margins, and any notable features as dictated. Write exactly what was stated.]
+
+MICROSCOPIC DESCRIPTION:
+[Histological findings as dictated — tissue architecture, cellular features, staining results, and any relevant microscopic observations.]
+
+OPINION AND COMMENTS:
+[The pathological diagnosis and any additional comments, correlations, or recommendations as stated by the pathologist.]
+
+─────────────────────────────────
+For MT: Please transcribe above findings into the reporting system exactly as dictated. Flag any unclear terms.
+─────────────────────────────────
+
+Strict rules:
+- Never invent findings not present in the dictation
+- Preserve all laterality and site descriptors exactly as dictated — if ambiguous, add [CHECK]
+- Use formal pathology terminology
+- If a section cannot be filled from the dictation, write "Refer to dictation"
+- Output the structured report only — no commentary or preamble"""
+
+
+# ── Prompt selector ───────────────────────────────────────────────────────────
+
+
+def _get_system_prompt(specialty: str) -> str:
+    if specialty == SPECIALTY_HISTOPATH:
+        return HISTOPATH_SYSTEM_PROMPT
+    return SYSTEM_PROMPT
+
+
 # ── Exceptions ────────────────────────────────────────────────────────────────
 
 
@@ -115,7 +160,11 @@ def _build_prompt(dictation: str, patient: PatientInfo | None) -> str:
 # ── Core functions ────────────────────────────────────────────────────────────
 
 
-def structure_report(dictation: str, patient: PatientInfo | None = None) -> str:
+def structure_report(
+    dictation: str,
+    patient: PatientInfo | None = None,
+    specialty: str = SPECIALTY_RADIOLOGY,
+) -> str:
     """Convert raw dictation into an MT-ready preliminary report. Synchronous."""
     dictation = dictation.strip()
     if not dictation:
@@ -125,7 +174,7 @@ def structure_report(dictation: str, patient: PatientInfo | None = None) -> str:
     message = client.messages.create(
         model=MODEL,
         max_tokens=1024,
-        system=SYSTEM_PROMPT,
+        system=_get_system_prompt(specialty),
         messages=[{"role": "user", "content": _build_prompt(dictation, patient)}],
     )
     result = message.content[0].text.strip()
@@ -136,7 +185,9 @@ def structure_report(dictation: str, patient: PatientInfo | None = None) -> str:
 
 
 async def structure_report_stream(
-    dictation: str, patient: PatientInfo | None = None
+    dictation: str,
+    patient: PatientInfo | None = None,
+    specialty: str = SPECIALTY_RADIOLOGY,
 ) -> AsyncGenerator[str, None]:
     """Convert raw dictation into a preliminary report, streaming output."""
     dictation = dictation.strip()
@@ -152,7 +203,7 @@ async def structure_report_stream(
         async with client.messages.stream(
             model=MODEL,
             max_tokens=1024,
-            system=SYSTEM_PROMPT,
+            system=_get_system_prompt(specialty),
             messages=[{"role": "user", "content": _build_prompt(dictation, patient)}],
         ) as stream:
             async for text in stream.text_stream:

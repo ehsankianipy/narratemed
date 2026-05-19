@@ -55,7 +55,7 @@ FRONTEND_PATH = Path(__file__).parent / "frontend" / "index.html"
 
 # ── App ───────────────────────────────────────────────────────────────────────
 
-app = FastAPI(title="NarrateRad")
+app = FastAPI(title="NarrateMed")
 transcriber = Transcriber()
 
 
@@ -81,10 +81,11 @@ async def structure(payload: dict) -> dict:
         mr_number=payload.get("mr_number", ""),
         referring_physician=payload.get("referring_physician", ""),
     )
+    specialty = payload.get("specialty", "radiology")
 
     try:
         report = ""
-        async for chunk in structure_report_stream(text, patient):
+        async for chunk in structure_report_stream(text, patient, specialty):
             report += chunk
         return {"structured": report}
     except ClaudeNotConfiguredError as e:

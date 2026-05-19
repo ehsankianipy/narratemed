@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>NarrateRad</title>
+  <title>NarrateMed</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -53,7 +53,7 @@
       max-width: 1500px;
       margin: 0 auto;
       display: grid;
-      grid-template-columns: 1fr 100px 140px 1fr;
+      grid-template-columns: 220px 1fr 100px 140px 1fr;
       gap: 10px;
       align-items: center;
     }
@@ -84,6 +84,33 @@
       background: #fff;
     }
     .patient-field input::placeholder { color: #ccc; }
+
+    /* ── Specialty selector ──────────────────────────────────────────────── */
+    .specialty-selector {
+      display: flex;
+      border: 1px solid #e5e5e5;
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    .spec-btn {
+      flex: 1;
+      font-size: 12px;
+      padding: 6px 6px;
+      border: none;
+      background: #fafafa;
+      cursor: pointer;
+      font-family: inherit;
+      color: #888;
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+    .spec-btn:first-child { border-right: 1px solid #e5e5e5; }
+    .spec-btn.active {
+      background: #0b7a5e;
+      color: #fff;
+      font-weight: 500;
+    }
+    .spec-btn:not(.active):hover { background: #f0f0f0; }
 
     /* ── Main grid ───────────────────────────────────────────────────────── */
     main {
@@ -216,13 +243,20 @@
 
   <!-- Header -->
   <header>
-    <div class="logo">Narrate<span>Rad</span></div>
+    <div class="logo">Narrate<span>Med</span></div>
     <div class="conn-badge" id="connBadge">Connecting...</div>
   </header>
 
   <!-- Patient info bar -->
   <div class="patient-bar">
     <div class="patient-bar-inner">
+      <div class="patient-field">
+        <label>Specialty</label>
+        <div class="specialty-selector">
+          <button class="spec-btn active" id="specRadiology" onclick="setSpecialty('radiology')">Radiology</button>
+          <button class="spec-btn" id="specHistopath" onclick="setSpecialty('histopath')">Histopathology</button>
+        </div>
+      </div>
       <div class="patient-field">
         <label>Patient Name</label>
         <input id="patientName" type="text" placeholder="Full name" />
@@ -305,7 +339,7 @@
 
     <!-- Structured report -->
     <div class="panel">
-      <div class="panel-title">Preliminary report — MT handover</div>
+      <div class="panel-title" id="reportPanelTitle">Preliminary report — MT handover</div>
       <button class="structure-btn" id="structureBtn" onclick="structureReport()">
         Structure report
       </button>
@@ -321,6 +355,16 @@
     let ws = null, audioCtx = null, processor = null, micStream = null;
     let recording = false, timerInterval = null, timerSeconds = 0;
     let totalWords = 0, totalFlagged = 0;
+    let currentSpecialty = "radiology";
+
+    // ── Specialty ───────────────────────────────────────────────────────────
+    function setSpecialty(spec) {
+      currentSpecialty = spec;
+      document.getElementById("specRadiology").classList.toggle("active", spec === "radiology");
+      document.getElementById("specHistopath").classList.toggle("active", spec === "histopath");
+      document.getElementById("reportPanelTitle").textContent =
+        spec === "histopath" ? "Preliminary report — Histopathology" : "Preliminary report — MT handover";
+    }
 
     // ── WebSocket ───────────────────────────────────────────────────────────
     function connectWS() {
@@ -354,13 +398,13 @@
       }
       if (msg.type === "radlex_corrections") {
         msg.corrections.forEach(c => {
-        const el = document.createElement("div");
-        el.className = "nlp-flag warning";
-        el.textContent = `RadLex: "${c.original}" → "${c.standardised}"`;
-        document.getElementById("nlpFlags").appendChild(el);
-    });
-    return;
-}
+          const el = document.createElement("div");
+          el.className = "nlp-flag warning";
+          el.textContent = `RadLex: "${c.original}" → "${c.standardised}"`;
+          document.getElementById("nlpFlags").appendChild(el);
+        });
+        return;
+      }
       if (msg.type === "nlp_flags") {
         showNlpFlags(msg.flags);
         return;
@@ -427,7 +471,8 @@
       document.getElementById("wordCount").textContent = totalWords;
       document.getElementById("flagCount").textContent = totalFlagged;
       body.scrollTop = body.scrollHeight;
-      checkCritical(words.map(w => w.text).join(" ").toLowerCase());
+      if (currentSpecialty === "radiology")
+        checkCritical(words.map(w => w.text).join(" ").toLowerCase());
     }
 
     function updateFlagRate(rate) {
@@ -451,7 +496,7 @@
       });
     }
 
-    // ── Critical keywords ───────────────────────────────────────────────────
+    // ── Critical keywords (radiology only) ─────────────────────────────────
     const CRITICAL_TERMS = [
       "pneumothorax", "tension pneumothorax", "pulmonary embolism",
       "aortic dissection", "haemorrhage", "hemorrhage", "cauda equina",
@@ -485,6 +530,7 @@
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             text,
+            specialty:            currentSpecialty,
             patient_name:         document.getElementById("patientName").value.trim(),
             patient_age:          document.getElementById("patientAge").value.trim(),
             mr_number:            document.getElementById("mrNumber").value.trim(),
