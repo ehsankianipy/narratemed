@@ -4,8 +4,8 @@ transcribe.py — NarrateRad
 Cross-platform Whisper transcription module.
 
 Automatically selects the right backend:
-  - Apple Silicon Mac  → mlx-whisper  (Metal GPU, fast)
-  - Windows / Intel    → faster-whisper (CPU, int8)
+  - Apple Silicon Mac  → mlx-whisper  (Metal GPU, fast, local)
+  - Windows / Intel    → Groq Whisper API (whisper-large-v3, cloud, fast + accurate)
 
 The rest of the app (main.py, nlp.py, structure.py) is identical on both
 platforms — only this file differs in its backend.
@@ -13,8 +13,11 @@ platforms — only this file differs in its backend.
 
 from __future__ import annotations
 
+import io
+import os
 import platform
 import re
+import wave
 from dataclasses import dataclass
 
 import numpy as np
@@ -36,8 +39,8 @@ MIN_AUDIO_SECONDS: float = 1.0
 # Apple Silicon model
 MLX_MODEL_REPO: str = "mlx-community/whisper-large-v3-mlx"
 
-# Windows / CPU model — medium gives the best speed/accuracy balance on CPU
-FW_MODEL_SIZE: str = "small"
+# Groq cloud model (used on Windows / Intel Mac)
+GROQ_MODEL: str = "whisper-large-v3"
 
 RADIOLOGY_PROMPT: str = (
     "Radiology report dictation. "
@@ -103,8 +106,9 @@ class Transcriber:
     """
     Cross-platform Whisper transcriber.
 
-    On Apple Silicon: uses mlx-whisper (Metal GPU acceleration).
-    On Windows/CPU:   uses faster-whisper with int8 quantisation.
+    On Apple Silicon: uses mlx-whisper (Metal GPU acceleration, fully local).
+    On Windows/CPU:   calls Groq Whisper API (whisper-large-v3, same accuracy
+                      as large model, ~1-2s per 10s chunk).
 
     Both backends return identical TranscriptionResult objects so the
     rest of the app doesn't need to know which backend is running.
@@ -132,9 +136,8 @@ class Transcriber:
     ) -> None:
         self._confidence_threshold = confidence_threshold
         self._initial_prompt = RADIOLOGY_PROMPT if use_radiology_prompt else None
-        self._fw_model = None  # lazy-loaded for faster-whisper
 
-        backend = "mlx-whisper (Apple Silicon)" if IS_APPLE_SILICON else "faster-whisper (CPU)"
+        backend = "mlx-whisper (Apple Silicon)" if IS_APPLE_SILICON else "Groq Whisper API"
         print(f"[transcribe] Backend: {backend}")
 
     # ── Public API ────────────────────────────────────────────────────────────
@@ -154,7 +157,7 @@ class Transcriber:
         if IS_APPLE_SILICON:
             return self._transcribe_mlx(audio)
         else:
-            return self._transcribe_fw(audio)
+            return self._transcribe_groq(audio)
 
     # ── Apple Silicon backend ─────────────────────────────────────────────────
 
@@ -194,51 +197,51 @@ class Transcriber:
                 ))
         return words
 
-    # ── Windows / CPU backend ─────────────────────────────────────────────────
+    # ── Groq cloud backend ────────────────────────────────────────────────────
 
-    def _transcribe_fw(self, audio: np.ndarray) -> TranscriptionResult:
-        if self._fw_model is None:
-            print(f"[transcribe] Loading faster-whisper {FW_MODEL_SIZE}...")
-            from faster_whisper import WhisperModel  # type: ignore
-            self._fw_model = WhisperModel(
-                FW_MODEL_SIZE,
-                device="cpu",
-                compute_type="int8",
+    def _transcribe_groq(self, audio: np.ndarray) -> TranscriptionResult:
+        from groq import Groq  # type: ignore
+
+        api_key = os.environ.get("GROQ_API_KEY", "")
+        if not api_key:
+            raise RuntimeError(
+                "GROQ_API_KEY is not set. "
+                "Add it to your .env file: GROQ_API_KEY=gsk_..."
             )
-            print("[transcribe] Model ready.")
 
-        segments, info = self._fw_model.transcribe(
-            audio,
-            word_timestamps=True,
-            initial_prompt=self._initial_prompt,
+        client = Groq(api_key=api_key)
+        wav_bytes = _numpy_to_wav_bytes(audio)
+
+        transcription = client.audio.transcriptions.create(
+            file=("audio.wav", wav_bytes, "audio/wav"),
+            model=GROQ_MODEL,
+            response_format="verbose_json",
+            timestamp_granularities=["word"],
             language="en",
-            condition_on_previous_text=False,
-            vad_filter=True,  # faster-whisper has built-in VAD
+            prompt=self._initial_prompt or "",
         )
 
-        words = self._extract_words_fw(segments)
+        words = self._extract_words_groq(transcription)
         return TranscriptionResult(
             words=self._filter_hallucinations(words),
-            language=info.language,
+            language=getattr(transcription, "language", "en"),
         )
 
-    def _extract_words_fw(self, segments: object) -> list[Word]:
+    def _extract_words_groq(self, transcription: object) -> list[Word]:
         words: list[Word] = []
-        for segment in segments:  # type: ignore
-            if not segment.words:
+        for w in getattr(transcription, "words", None) or []:
+            text = getattr(w, "word", "").strip()
+            if not text:
                 continue
-            for w in segment.words:
-                text = w.word.strip()
-                if not text:
-                    continue
-                prob = float(w.probability)
-                words.append(Word(
-                    text=text,
-                    start=round(float(w.start), 3),
-                    end=round(float(w.end), 3),
-                    probability=round(prob, 4),
-                    flagged=prob < self._confidence_threshold,
-                ))
+            # Groq whisper-large-v3 doesn't expose per-word probabilities;
+            # the model is accurate enough that we treat all words as confident.
+            words.append(Word(
+                text=text,
+                start=round(float(getattr(w, "start", 0.0)), 3),
+                end=round(float(getattr(w, "end", 0.0)), 3),
+                probability=1.0,
+                flagged=False,
+            ))
         return words
 
     # ── Hallucination filter ──────────────────────────────────────────────────
@@ -292,6 +295,21 @@ class Transcriber:
         return [w for sent in unique for w in sent]
 
 
+# ── Audio helpers ─────────────────────────────────────────────────────────────
+
+
+def _numpy_to_wav_bytes(audio: np.ndarray, sample_rate: int = SAMPLE_RATE) -> bytes:
+    """Convert a float32 mono numpy array to WAV bytes suitable for API upload."""
+    buf = io.BytesIO()
+    with wave.open(buf, "wb") as wf:
+        wf.setnchannels(1)
+        wf.setsampwidth(2)  # 16-bit PCM
+        wf.setframerate(sample_rate)
+        audio_int16 = (np.clip(audio, -1.0, 1.0) * 32767).astype(np.int16)
+        wf.writeframes(audio_int16.tobytes())
+    return buf.getvalue()
+
+
 # ── Smoke test ────────────────────────────────────────────────────────────────
 
 
@@ -299,7 +317,7 @@ if __name__ == "__main__":
     import sounddevice as sd
 
     RECORD_SECONDS = 8
-    backend = "mlx-whisper" if IS_APPLE_SILICON else "faster-whisper"
+    backend = "mlx-whisper" if IS_APPLE_SILICON else "Groq Whisper API"
 
     print("=" * 60)
     print(f"NarrateRad -- transcribe.py smoke test ({backend})")

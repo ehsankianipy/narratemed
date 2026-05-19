@@ -10,6 +10,7 @@ $INSTALL_DIR = "$env:USERPROFILE\narraterad"
 
 function Write-Step { param($msg) Write-Host "`n>> $msg" -ForegroundColor Cyan }
 function Write-OK   { param($msg) Write-Host "   OK: $msg" -ForegroundColor Green }
+function Write-Warn { param($msg) Write-Host "   WARNING: $msg" -ForegroundColor Yellow }
 function Write-Fail { param($msg) Write-Host "   ERROR: $msg" -ForegroundColor Red; Read-Host "Press Enter to exit"; exit 1 }
 
 Clear-Host
@@ -51,30 +52,6 @@ try {
     exit 0
 }
 
-# ── Ollama ────────────────────────────────────────────────────────────────────
-Write-Step "Checking Ollama..."
-try {
-    $ollamaVer = & ollama --version 2>&1
-    Write-OK "Ollama already installed"
-} catch {
-    Write-Host "   Ollama not found. Downloading installer..." -ForegroundColor Yellow
-    $ollamaInstaller = "$env:TEMP\OllamaSetup.exe"
-    Invoke-WebRequest -Uri "https://ollama.com/download/OllamaSetup.exe" -OutFile $ollamaInstaller
-    Write-Host "   Installing Ollama..." -ForegroundColor Yellow
-    Start-Process -FilePath $ollamaInstaller -ArgumentList "/S" -Wait
-    Write-OK "Ollama installed"
-}
-
-Write-Step "Starting Ollama service..."
-Start-Process -FilePath "ollama" -ArgumentList "serve" -WindowStyle Hidden
-Start-Sleep -Seconds 3
-Write-OK "Ollama running"
-
-Write-Step "Downloading Llama 3.1 (4.7GB - this will take several minutes)..."
-Write-Host "   Please wait — do not close this window..." -ForegroundColor Yellow
-& ollama pull llama3.1
-Write-OK "Llama 3.1 ready"
-
 # ── uv ────────────────────────────────────────────────────────────────────────
 Write-Step "Checking uv..."
 try {
@@ -104,19 +81,55 @@ Write-Step "Setting up Python environment..."
 & uv python install 3.11
 & uv python pin 3.11
 & uv venv --python 3.11
-& uv add faster-whisper sounddevice numpy fastapi uvicorn httpx python-multipart websockets
+& uv add anthropic groq sounddevice numpy fastapi uvicorn httpx python-multipart websockets
 Write-OK "Python environment ready"
 
-# ── Download Whisper model ────────────────────────────────────────────────────
-Write-Step "Downloading Whisper medium model (this may take a few minutes)..."
-Write-Host "   Please wait..." -ForegroundColor Yellow
-& uv run python -c @"
-from faster_whisper import WhisperModel
-print('Downloading Whisper medium model...')
-model = WhisperModel('medium', device='cpu', compute_type='int8')
-print('Whisper model ready')
-"@
-Write-OK "Whisper model downloaded"
+# ── API Keys ──────────────────────────────────────────────────────────────────
+Write-Step "API Key Setup"
+Write-Host ""
+Write-Host "   NarrateRad needs two free API keys:" -ForegroundColor White
+Write-Host "   1. Claude (for report structuring) — https://console.anthropic.com" -ForegroundColor Gray
+Write-Host "   2. Groq   (for voice transcription) — https://console.groq.com" -ForegroundColor Gray
+Write-Host ""
+
+$envFile = "$INSTALL_DIR\.env"
+$envContent = ""
+
+# Check for existing keys
+$existingAnthropic = ""
+$existingGroq = ""
+if (Test-Path $envFile) {
+    $lines = Get-Content $envFile
+    foreach ($line in $lines) {
+        if ($line -match "^ANTHROPIC_API_KEY=(.+)") { $existingAnthropic = $Matches[1] }
+        if ($line -match "^GROQ_API_KEY=(.+)")      { $existingGroq      = $Matches[1] }
+    }
+}
+
+if ($existingAnthropic) {
+    Write-OK "ANTHROPIC_API_KEY already set"
+    $anthropicKey = $existingAnthropic
+} else {
+    $anthropicKey = Read-Host "   Enter your Anthropic API key (sk-ant-...)"
+    if (-not $anthropicKey) {
+        Write-Warn "No Anthropic key entered — add it later to $envFile"
+        $anthropicKey = ""
+    }
+}
+
+if ($existingGroq) {
+    Write-OK "GROQ_API_KEY already set"
+    $groqKey = $existingGroq
+} else {
+    $groqKey = Read-Host "   Enter your Groq API key (gsk_...)"
+    if (-not $groqKey) {
+        Write-Warn "No Groq key entered — add it later to $envFile"
+        $groqKey = ""
+    }
+}
+
+"ANTHROPIC_API_KEY=$anthropicKey`nGROQ_API_KEY=$groqKey" | Out-File -FilePath $envFile -Encoding ASCII
+Write-OK "API keys saved to .env"
 
 # ── Create start script ───────────────────────────────────────────────────────
 Write-Step "Creating launcher..."
@@ -124,8 +137,6 @@ $startScript = @"
 @echo off
 cd /d "%~dp0"
 echo Starting NarrateRad...
-start "" /B ollama serve
-timeout /t 2 /nobreak >nul
 start /B uv run uvicorn main:app --port 8000 --ws-ping-interval 20 --ws-ping-timeout 60
 timeout /t 3 /nobreak >nul
 start http://localhost:8000
@@ -136,11 +147,9 @@ echo.
 echo Press any key to stop NarrateRad...
 pause >nul
 taskkill /F /IM uvicorn.exe >nul 2>&1
-taskkill /F /IM ollama.exe >nul 2>&1
 echo NarrateRad stopped.
 "@
 $startScript | Out-File -FilePath "$INSTALL_DIR\start.bat" -Encoding ASCII
-
 Write-OK "Launcher created at $INSTALL_DIR\start.bat"
 
 # ── Desktop shortcut ──────────────────────────────────────────────────────────

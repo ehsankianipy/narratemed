@@ -14,6 +14,7 @@ Run with:
 
 import asyncio
 import json
+import os
 import traceback
 from pathlib import Path
 
@@ -23,8 +24,27 @@ from fastapi.responses import HTMLResponse
 
 from nlp import check_all
 from radlex import standardise
-from structure import OllamaNotRunningError, PatientInfo, structure_report_stream
+from structure import ClaudeNotConfiguredError, PatientInfo, structure_report_stream
 from transcribe import Transcriber
+
+
+def _load_dotenv() -> None:
+    env_path = Path(__file__).parent / ".env"
+    if not env_path.exists():
+        return
+    with env_path.open() as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, _, value = line.partition("=")
+            key = key.strip()
+            value = value.strip().strip("\"'")
+            if key:
+                os.environ.setdefault(key, value)
+
+
+_load_dotenv()
 
 # ── Config ────────────────────────────────────────────────────────────────────
 
@@ -67,7 +87,7 @@ async def structure(payload: dict) -> dict:
         async for chunk in structure_report_stream(text, patient):
             report += chunk
         return {"structured": report}
-    except OllamaNotRunningError as e:
+    except ClaudeNotConfiguredError as e:
         return {"error": str(e)}
     except Exception as e:
         return {"error": str(e)}

@@ -12,6 +12,7 @@ BOLD=$(tput bold 2>/dev/null || echo "")
 RESET=$(tput sgr0 2>/dev/null || echo "")
 GREEN="\033[0;32m"
 RED="\033[0;31m"
+YELLOW="\033[0;33m"
 NC="\033[0m"
 
 echo ""
@@ -21,8 +22,8 @@ echo ""
 
 # ── Check Apple Silicon ────────────────────────────────────────
 if [ "$(uname -m)" != "arm64" ]; then
-  echo -e "${RED}Error: NarrateRad requires an Apple Silicon Mac (M1/M2/M3/M4).${NC}"
-  echo "Intel Mac support is coming in a future release."
+  echo -e "${RED}Error: This installer is for Apple Silicon Macs (M1/M2/M3/M4).${NC}"
+  echo "For Windows, run install.ps1 instead."
   exit 1
 fi
 echo -e "${GREEN}✓${NC} Apple Silicon detected"
@@ -45,24 +46,6 @@ if ! command -v brew &>/dev/null; then
 else
   echo -e "${GREEN}✓${NC} Homebrew already installed"
 fi
-
-# ── Ollama ─────────────────────────────────────────────────────
-echo ""
-echo "Checking Ollama..."
-if ! command -v ollama &>/dev/null; then
-  echo "Installing Ollama..."
-  brew install ollama
-else
-  echo -e "${GREEN}✓${NC} Ollama already installed"
-fi
-
-echo "Starting Ollama service..."
-brew services start ollama
-sleep 3
-
-echo "Downloading Llama 3.1 (4.7GB — this may take several minutes)..."
-ollama pull llama3.1
-echo -e "${GREEN}✓${NC} Llama 3.1 ready"
 
 # ── uv ────────────────────────────────────────────────────────
 echo ""
@@ -92,8 +75,7 @@ echo "Setting up Python 3.11 environment..."
 uv python install 3.11
 uv python pin 3.11
 uv venv --python 3.11
-uv add faster-whisper sounddevice numpy fastapi uvicorn httpx python-multipart websockets 2>/dev/null || true
-uv add mlx-whisper sounddevice numpy fastapi uvicorn httpx python-multipart websockets
+uv add anthropic groq mlx-whisper sounddevice numpy fastapi uvicorn httpx python-multipart websockets
 echo -e "${GREEN}✓${NC} Python environment ready"
 
 # ── Download Whisper model ────────────────────────────────────
@@ -107,14 +89,34 @@ print('Whisper model ready')
 "
 echo -e "${GREEN}✓${NC} Whisper model downloaded"
 
+# ── API Key ───────────────────────────────────────────────────
+echo ""
+echo "────────────────────────────────────────"
+echo "${BOLD}API Key Setup${RESET}"
+echo ""
+echo "NarrateRad uses the Claude API to structure radiology reports."
+echo -e "Get your free key at: ${YELLOW}https://console.anthropic.com${NC}"
+echo ""
+
+if [ -f "$INSTALL_DIR/.env" ] && grep -q "ANTHROPIC_API_KEY" "$INSTALL_DIR/.env"; then
+  echo -e "${GREEN}✓${NC} ANTHROPIC_API_KEY already set in .env"
+else
+  read -rp "Enter your Anthropic API key (sk-ant-...): " ANTHROPIC_KEY
+  if [ -z "$ANTHROPIC_KEY" ]; then
+    echo -e "${YELLOW}Warning: No key entered. Add it later to ~/narraterad/.env${NC}"
+    echo "ANTHROPIC_API_KEY=" > "$INSTALL_DIR/.env"
+  else
+    echo "ANTHROPIC_API_KEY=$ANTHROPIC_KEY" > "$INSTALL_DIR/.env"
+    echo -e "${GREEN}✓${NC} API key saved to .env"
+  fi
+fi
+
 # ── Create start script ───────────────────────────────────────
 cat > "$INSTALL_DIR/start.sh" << 'STARTSCRIPT'
 #!/bin/bash
 cd "$(dirname "$0")"
 echo "Starting NarrateRad..."
-brew services start ollama 2>/dev/null || true
-sleep 1
-uv run uvicorn main:app --port 8000 &
+uv run uvicorn main:app --port 8000 --ws-ping-interval 20 --ws-ping-timeout 60 &
 SERVER_PID=$!
 sleep 2
 open http://localhost:8000

@@ -15,3 +15,5 @@ narraterad.db
 
 *.egg-info/
 
+.env
+

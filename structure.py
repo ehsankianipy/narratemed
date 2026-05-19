@@ -4,22 +4,20 @@ structure.py — NarrateRad
 LLM structuring module — converts raw radiology dictation into a
 preliminary report formatted for Medical Transcriptionist (MT) handover.
 
-Includes patient demographics, procedure heading, and IR-compatible structure.
+Uses Claude API (claude-haiku-4-5) for fast cloud-based structuring.
 """
 
 from __future__ import annotations
 
-import json
+import os
 from dataclasses import dataclass
 from typing import AsyncGenerator
 
-import httpx
+import anthropic
 
 # ── Config ────────────────────────────────────────────────────────────────────
 
-OLLAMA_URL: str = "http://localhost:11434/api/generate"
-MODEL: str = "llama3.1"
-TIMEOUT: float = 120.0
+MODEL: str = "claude-haiku-4-5"
 
 
 # ── Patient info ──────────────────────────────────────────────────────────────
@@ -85,19 +83,25 @@ Strict rules:
 # ── Exceptions ────────────────────────────────────────────────────────────────
 
 
-class OllamaNotRunningError(Exception):
+class ClaudeNotConfiguredError(Exception):
     def __str__(self) -> str:
         return (
-            "Ollama is not running. Start it with: ollama serve\n"
-            "Then make sure llama3.1 is pulled: ollama pull llama3.1"
+            "ANTHROPIC_API_KEY is not set.\n"
+            "Add it to your .env file: ANTHROPIC_API_KEY=sk-ant-..."
         )
 
 
-# ── Core functions ────────────────────────────────────────────────────────────
+# ── Helpers ───────────────────────────────────────────────────────────────────
+
+
+def _get_api_key() -> str:
+    key = os.environ.get("ANTHROPIC_API_KEY", "")
+    if not key:
+        raise ClaudeNotConfiguredError()
+    return key
 
 
 def _build_prompt(dictation: str, patient: PatientInfo | None) -> str:
-    """Combine patient header and dictation into the LLM prompt."""
     parts = []
     if patient and not patient.is_empty():
         parts.append(patient.header())
@@ -108,81 +112,51 @@ def _build_prompt(dictation: str, patient: PatientInfo | None) -> str:
     return "\n".join(parts)
 
 
+# ── Core functions ────────────────────────────────────────────────────────────
+
+
 def structure_report(dictation: str, patient: PatientInfo | None = None) -> str:
-    """
-    Convert raw dictation into an MT-ready preliminary report.
-    Synchronous — blocks until full report is returned.
-    """
+    """Convert raw dictation into an MT-ready preliminary report. Synchronous."""
     dictation = dictation.strip()
     if not dictation:
         return "No dictation provided."
 
-    payload = {
-        "model": MODEL,
-        "system": SYSTEM_PROMPT,
-        "prompt": _build_prompt(dictation, patient),
-        "stream": False,
-    }
+    client = anthropic.Anthropic(api_key=_get_api_key())
+    message = client.messages.create(
+        model=MODEL,
+        max_tokens=1024,
+        system=SYSTEM_PROMPT,
+        messages=[{"role": "user", "content": _build_prompt(dictation, patient)}],
+    )
+    result = message.content[0].text.strip()
 
-    try:
-        response = httpx.post(OLLAMA_URL, json=payload, timeout=TIMEOUT)
-        response.raise_for_status()
-        result = response.json().get("response", "").strip()
-
-        # Prepend patient header to the output if provided
-        if patient and not patient.is_empty():
-            return patient.header() + "\n\n" + result
-        return result
-
-    except httpx.ConnectError:
-        raise OllamaNotRunningError()
-    except httpx.HTTPStatusError as e:
-        raise RuntimeError(f"Ollama error: {e.response.status_code}") from e
+    if patient and not patient.is_empty():
+        return patient.header() + "\n\n" + result
+    return result
 
 
 async def structure_report_stream(
     dictation: str, patient: PatientInfo | None = None
 ) -> AsyncGenerator[str, None]:
-    """
-    Convert raw dictation into a preliminary report, streaming output.
-    Yields text chunks for real-time display in the UI.
-    """
+    """Convert raw dictation into a preliminary report, streaming output."""
     dictation = dictation.strip()
     if not dictation:
         yield "No dictation provided."
         return
 
-    # Stream the patient header immediately before Ollama starts
     if patient and not patient.is_empty():
         yield patient.header() + "\n\n"
 
-    payload = {
-        "model": MODEL,
-        "system": SYSTEM_PROMPT,
-        "prompt": _build_prompt(dictation, patient),
-        "stream": True,
-    }
-
-    try:
-        async with httpx.AsyncClient(timeout=TIMEOUT) as client:
-            async with client.stream("POST", OLLAMA_URL, json=payload) as response:
-                response.raise_for_status()
-                async for line in response.aiter_lines():
-                    if not line.strip():
-                        continue
-                    try:
-                        chunk = json.loads(line)
-                        token = chunk.get("response", "")
-                        if token:
-                            yield token
-                        if chunk.get("done", False):
-                            break
-                    except json.JSONDecodeError:
-                        continue
-    except httpx.ConnectError:
-        raise OllamaNotRunningError()
-    except httpx.HTTPStatusError as e:
-        raise RuntimeError(f"Ollama error: {e.response.status_code}") from e
+    api_key = _get_api_key()
+    async with anthropic.AsyncAnthropic(api_key=api_key) as client:
+        async with client.messages.stream(
+            model=MODEL,
+            max_tokens=1024,
+            system=SYSTEM_PROMPT,
+            messages=[{"role": "user", "content": _build_prompt(dictation, patient)}],
+        ) as stream:
+            async for text in stream.text_stream:
+                yield text
 
 
 # ── Smoke test ────────────────────────────────────────────────────────────────
@@ -207,7 +181,7 @@ if __name__ == "__main__":
     )
 
     print("=" * 60)
-    print("NarrateRad -- structure.py smoke test")
+    print("NarrateRad -- structure.py smoke test (Claude API)")
     print("=" * 60)
 
     async def run() -> None:
@@ -215,7 +189,7 @@ if __name__ == "__main__":
             async for chunk in structure_report_stream(dictation, patient):
                 print(chunk, end="", flush=True)
             print("\n")
-        except OllamaNotRunningError as e:
+        except ClaudeNotConfiguredError as e:
             print(f"\nError: {e}")
 
     asyncio.run(run())
