@@ -223,8 +223,8 @@
 
     .structure-body {
       flex: 1; min-height: 260px; max-height: 460px; overflow-y: auto;
-      font-size: 12.5px; line-height: 1.8; color: #1a1a1a;
-      white-space: pre-wrap; font-family: "Menlo", "Monaco", monospace;
+      font-size: 10pt; line-height: 1.2; color: #1a1a1a;
+      font-family: "Times New Roman", Times, serif;
     }
     .structure-body:empty::before {
       content: "Fill in patient details above, dictate, then click Structure report...";
@@ -513,6 +513,25 @@
       }
     }
 
+    // ── Report formatter ────────────────────────────────────────────────────
+    function escapeHtml(s) {
+      return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+    }
+
+    function isHeading(line) {
+      const t = line.trim();
+      return t === "PRELIMINARY DICTATION" || /^[A-Z][A-Z\s\/\-]+:$/.test(t);
+    }
+
+    function formatReport(text) {
+      return text.split("\n").map(line => {
+        if (!line.trim()) return `<div style="font-size:10pt;line-height:1.2;">&nbsp;</div>`;
+        if (/^─+$/.test(line.trim())) return `<div style="font-size:10pt;color:#888;">${escapeHtml(line)}</div>`;
+        if (isHeading(line)) return `<div style="font-size:11pt;font-weight:600;margin-top:6px;">${escapeHtml(line.trim())}</div>`;
+        return `<div style="font-size:10pt;line-height:1.2;">${escapeHtml(line)}</div>`;
+      }).join("");
+    }
+
     // ── Structure report ────────────────────────────────────────────────────
     async function structureReport() {
       const text = document.getElementById("transcriptBody").innerText.trim();
@@ -522,7 +541,7 @@
       const out = document.getElementById("structuredReport");
       btn.textContent = "Structuring...";
       btn.disabled = true;
-      out.textContent = "Generating preliminary report...";
+      out.innerHTML = `<div style="font-size:10pt;color:#aaa;font-style:italic;">Generating preliminary report...</div>`;
 
       try {
         const res = await fetch("/structure", {
@@ -538,9 +557,10 @@
           })
         });
         const data = await res.json();
-        out.textContent = data.structured || data.error || "No output returned.";
+        const content = data.structured || data.error || "No output returned.";
+        out.innerHTML = formatReport(content);
       } catch (e) {
-        out.textContent = "Error: " + e.message;
+        out.innerHTML = `<div style="font-size:10pt;color:#c0392b;">Error: ${escapeHtml(e.message)}</div>`;
       } finally {
         btn.textContent = "Structure report";
         btn.disabled = false;
@@ -548,8 +568,8 @@
     }
 
     function copyReport() {
-      const text = document.getElementById("structuredReport").textContent;
-      if (!text) return;
+      const text = document.getElementById("structuredReport").innerText;
+      if (!text.trim()) return;
       navigator.clipboard.writeText(text).then(() => {
         const btn = document.querySelector(".copy-row button");
         btn.textContent = "Copied!";
@@ -560,9 +580,13 @@
     // ── Clear ───────────────────────────────────────────────────────────────
     function clearAll() {
       document.getElementById("transcriptBody").innerHTML = "";
-      document.getElementById("structuredReport").textContent = "";
+      document.getElementById("structuredReport").innerHTML = "";
       document.getElementById("nlpFlags").innerHTML = "";
       document.getElementById("criticalBanner").classList.remove("visible");
+      document.getElementById("patientName").value = "";
+      document.getElementById("patientAge").value = "";
+      document.getElementById("mrNumber").value = "";
+      document.getElementById("referringPhysician").value = "";
       totalWords = 0; totalFlagged = 0;
       document.getElementById("wordCount").textContent = "0";
       document.getElementById("flagCount").textContent = "0";
