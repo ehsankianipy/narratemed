@@ -127,9 +127,15 @@ async def websocket_transcribe(ws: WebSocket) -> None:
                 await _send(ws, {"type": "status", "message": "Transcribing..."})
 
                 loop = asyncio.get_event_loop()
-                result = await loop.run_in_executor(
-                    None, transcriber.transcribe, audio_chunk
-                )
+                try:
+                    result = await loop.run_in_executor(
+                        None, transcriber.transcribe, audio_chunk
+                    )
+                except Exception as exc:
+                    transcribing = False
+                    await _send(ws, {"type": "status", "message": f"Transcription error: {exc}"})
+                    await _send(ws, {"type": "status", "message": "Listening..."})
+                    continue
                 transcribing = False
 
                 if not result.is_empty():
@@ -178,11 +184,14 @@ async def websocket_transcribe(ws: WebSocket) -> None:
 
                 await _send(ws, {"type": "status", "message": "Listening..."})
 
-    except (WebSocketDisconnect, RuntimeError):
+    except WebSocketDisconnect:
         pass
     except Exception as e:
         traceback.print_exc()
-        await _send(ws, {"type": "status", "message": f"Error: {str(e)}"})
+        try:
+            await _send(ws, {"type": "status", "message": f"Error: {str(e)}"})
+        except Exception:
+            pass
     finally:
         heartbeat_task.cancel()
 
