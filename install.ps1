@@ -154,7 +154,8 @@ Write-OK "Launcher created at $INSTALL_DIR\start.bat"
 # -- Desktop shortcut ---------------------------------------------------------
 Write-Step "Creating desktop shortcut..."
 $WshShell = New-Object -ComObject WScript.Shell
-$Shortcut = $WshShell.CreateShortcut("$env:USERPROFILE\Desktop\NarrateMed.lnk")
+$desktopPath = [Environment]::GetFolderPath('Desktop')
+$Shortcut = $WshShell.CreateShortcut("$desktopPath\NarrateMed.lnk")
 $Shortcut.TargetPath = "$INSTALL_DIR\start.bat"
 $Shortcut.WorkingDirectory = $INSTALL_DIR
 $Shortcut.Description = "NarrateMed - Medical Voice Dictation"
