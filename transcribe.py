@@ -209,6 +209,12 @@ class Transcriber:
                 "Add it to your .env file: GROQ_API_KEY=gsk_..."
             )
 
+        rms = float(np.sqrt(np.mean(audio ** 2)))
+        if rms < 0.002:
+            raise RuntimeError(
+                f"No audio detected (level={rms:.4f}) — check microphone is not muted"
+            )
+
         client = Groq(api_key=api_key)
         wav_bytes = _numpy_to_wav_bytes(audio)
 
@@ -233,8 +239,6 @@ class Transcriber:
             text = getattr(w, "word", "").strip()
             if not text:
                 continue
-            # Groq whisper-large-v3 doesn't expose per-word probabilities;
-            # the model is accurate enough that we treat all words as confident.
             words.append(Word(
                 text=text,
                 start=round(float(getattr(w, "start", 0.0)), 3),
@@ -242,6 +246,16 @@ class Transcriber:
                 probability=1.0,
                 flagged=False,
             ))
+
+        # Fallback: if Groq returned no word timestamps but has full text, split it
+        if not words:
+            full_text = getattr(transcription, "text", "").strip()
+            if full_text:
+                words = [
+                    Word(text=w, start=0.0, end=0.0, probability=1.0, flagged=False)
+                    for w in full_text.split() if w.strip()
+                ]
+
         return words
 
     # ── Hallucination filter ──────────────────────────────────────────────────
