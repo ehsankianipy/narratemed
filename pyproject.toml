@@ -1,6 +1,6 @@
 [project]
 name = "narratemed"
-version = "0.2.0"
+version = "0.3.0"
 description = "Medical voice dictation and report structuring — Radiology and Histopathology"
 readme = "README.md"
 requires-python = ">=3.11"

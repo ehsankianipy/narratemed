@@ -15,9 +15,14 @@ Run with:
 import asyncio
 import json
 import os
+import re
+import shutil
+import subprocess
+import tomllib
 import traceback
 from pathlib import Path
 
+import httpx
 import numpy as np
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
@@ -90,6 +95,54 @@ async def structure(payload: dict) -> dict:
         return {"structured": report}
     except ClaudeNotConfiguredError as e:
         return {"error": str(e)}
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.get("/check-update")
+async def check_update() -> dict:
+    pyproject = Path(__file__).parent / "pyproject.toml"
+    with open(pyproject, "rb") as f:
+        local = tomllib.load(f)["project"]["version"]
+    try:
+        async with httpx.AsyncClient(timeout=8.0) as client:
+            r = await client.get(
+                "https://raw.githubusercontent.com/ehsankianipy/narratemed/main/pyproject.toml"
+            )
+            m = re.search(r'version\s*=\s*"([^"]+)"', r.text)
+            remote = m.group(1) if m else local
+    except Exception:
+        return {"local": local, "remote": local, "update_available": False}
+
+    def ver(v: str) -> tuple:
+        return tuple(int(x) for x in v.split("."))
+
+    return {"local": local, "remote": remote, "update_available": ver(remote) > ver(local)}
+
+
+@app.post("/update")
+async def do_update() -> dict:
+    install_dir = Path(__file__).parent
+    uv = shutil.which("uv") or "uv"
+
+    def run() -> str:
+        r1 = subprocess.run(
+            ["git", "pull", "origin", "main"],
+            cwd=install_dir, capture_output=True, text=True, timeout=60,
+        )
+        if r1.returncode != 0:
+            raise RuntimeError(f"git pull failed: {r1.stderr.strip()}")
+        r2 = subprocess.run(
+            [uv, "sync"],
+            cwd=install_dir, capture_output=True, text=True, timeout=120,
+        )
+        if r2.returncode != 0:
+            raise RuntimeError(f"uv sync failed: {r2.stderr.strip()}")
+        return "ok"
+
+    try:
+        await asyncio.get_event_loop().run_in_executor(None, run)
+        return {"success": True}
     except Exception as e:
         return {"error": str(e)}
 

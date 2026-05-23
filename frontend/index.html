@@ -34,6 +34,38 @@
     .conn-badge.connected { background: #e6f4ef; color: #0b7a5e; }
     .conn-badge.error     { background: #fdecea; color: #c0392b; }
 
+    /* ── Update notification ─────────────────────────────────────────────── */
+    .update-badge {
+      display: none; font-size: 12px; padding: 3px 10px; border-radius: 20px;
+      font-weight: 500; background: #fff8e6; color: #7a5000;
+      border: 1px solid #f5e0a0; cursor: pointer; transition: background 0.15s;
+    }
+    .update-badge:hover { background: #fef3cc; }
+    .update-badge.visible { display: inline-block; }
+
+    .update-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.35); z-index: 100;
+      align-items: center; justify-content: center;
+    }
+    .update-overlay.visible { display: flex; }
+    .update-box {
+      background: #fff; border-radius: 12px; padding: 28px 32px;
+      max-width: 400px; width: 90%; box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+    }
+    .update-box h3 { font-size: 15px; font-weight: 600; margin-bottom: 8px; }
+    .update-box p  { font-size: 13px; color: #555; margin-bottom: 20px; line-height: 1.5; }
+    .update-box .btn-row { display: flex; gap: 10px; justify-content: flex-end; }
+    .update-box button {
+      font-size: 13px; padding: 7px 16px; border-radius: 7px;
+      border: none; cursor: pointer; font-family: inherit; font-weight: 500;
+    }
+    .btn-primary { background: #0b7a5e; color: #fff; }
+    .btn-primary:hover { background: #096b52; }
+    .btn-primary:disabled { background: #aaa; cursor: not-allowed; }
+    .btn-secondary { background: #f0f0f0; color: #444; }
+    .btn-secondary:hover { background: #e5e5e5; }
+
     /* ── Critical banner ─────────────────────────────────────────────────── */
     .banner-wrap { padding: 0 24px; padding-top: 12px; max-width: 1500px; margin: 0 auto; width: 100%; }
     .critical-banner {
@@ -241,10 +273,25 @@
 </head>
 <body>
 
+  <!-- Update overlay -->
+  <div class="update-overlay" id="updateOverlay">
+    <div class="update-box">
+      <h3>Update available</h3>
+      <p id="updateMsg">A new version of NarrateMed is available.</p>
+      <div class="btn-row">
+        <button class="btn-secondary" onclick="closeUpdate()">Later</button>
+        <button class="btn-primary" id="updateNowBtn" onclick="runUpdate()">Update now</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Header -->
   <header>
     <div class="logo">Narrate<span>Med</span></div>
-    <div class="conn-badge" id="connBadge">Connecting...</div>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <span class="update-badge" id="updateBadge" onclick="openUpdate()">Update available</span>
+      <div class="conn-badge" id="connBadge">Connecting...</div>
+    </div>
   </header>
 
   <!-- Patient info bar -->
@@ -639,7 +686,52 @@
       el.textContent = label; el.className = "conn-badge " + cls;
     }
 
+    // ── Update check ────────────────────────────────────────────────────────
+    let remoteVersion = "";
+
+    async function checkForUpdate() {
+      try {
+        const res = await fetch("/check-update");
+        const data = await res.json();
+        if (data.update_available) {
+          remoteVersion = data.remote;
+          document.getElementById("updateBadge").classList.add("visible");
+          document.getElementById("updateMsg").textContent =
+            `Version ${data.remote} is available (you have ${data.local}). Click Update now — the app will fetch the latest code and restart.`;
+        }
+      } catch (_) {}
+    }
+
+    function openUpdate()  { document.getElementById("updateOverlay").classList.add("visible"); }
+    function closeUpdate() { document.getElementById("updateOverlay").classList.remove("visible"); }
+
+    async function runUpdate() {
+      const btn = document.getElementById("updateNowBtn");
+      btn.textContent = "Updating...";
+      btn.disabled = true;
+      document.getElementById("updateMsg").textContent = "Downloading update — please wait...";
+      try {
+        const res = await fetch("/update", { method: "POST" });
+        const data = await res.json();
+        if (data.success) {
+          document.getElementById("updateMsg").textContent =
+            "Update complete. Please close and reopen the app to finish.";
+          document.getElementById("updateBadge").classList.remove("visible");
+          btn.textContent = "Done";
+        } else {
+          document.getElementById("updateMsg").textContent = "Update failed: " + (data.error || "unknown error");
+          btn.textContent = "Retry";
+          btn.disabled = false;
+        }
+      } catch (e) {
+        document.getElementById("updateMsg").textContent = "Update failed: " + e.message;
+        btn.textContent = "Retry";
+        btn.disabled = false;
+      }
+    }
+
     connectWS();
+    checkForUpdate();
   </script>
 </body>
 </html>
