@@ -101,7 +101,7 @@ async def websocket_transcribe(ws: WebSocket) -> None:
     # Heartbeat — keeps connection alive during long Whisper transcriptions
     async def heartbeat() -> None:
         while True:
-            await asyncio.sleep(10)
+            await asyncio.sleep(5)
             await _send(ws, {"type": "ping"})
 
     heartbeat_task = asyncio.create_task(heartbeat())

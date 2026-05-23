@@ -367,21 +367,25 @@
     }
 
     // ── WebSocket ───────────────────────────────────────────────────────────
+    let reconnectDelay = 2000;
+
     function connectWS() {
       ws = new WebSocket("ws://localhost:8000/ws");
       ws.binaryType = "arraybuffer";
       ws.onopen = () => {
         setBadge("Connected", "connected");
         document.getElementById("micBtn").classList.remove("disabled");
+        reconnectDelay = 2000;
       };
       ws.onmessage = (e) => handleMessage(JSON.parse(e.data));
       ws.onclose = () => {
-        setBadge("Disconnected", "error");
+        setBadge("Reconnecting...", "");
         document.getElementById("micBtn").classList.add("disabled");
-        setStatus("Disconnected — reload to reconnect");
-        setTimeout(connectWS, 3000);
+        setStatus("Connection lost — reconnecting...");
+        setTimeout(connectWS, reconnectDelay);
+        reconnectDelay = Math.min(reconnectDelay * 1.5, 10000);
       };
-      ws.onerror = () => setBadge("Error", "error");
+      ws.onerror = () => {};
     }
 
     function handleMessage(msg) {

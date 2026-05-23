@@ -136,7 +136,7 @@ $startScript = @"
 @echo off
 cd /d "%~dp0"
 echo Starting NarrateMed...
-start /B uv run uvicorn main:app --port 8000 --ws-ping-interval 20 --ws-ping-timeout 60
+start /B uv run uvicorn main:app --port 8000 --ws-ping-interval 10 --ws-ping-timeout 30
 timeout /t 3 /nobreak >nul
 start http://localhost:8000
 echo.
