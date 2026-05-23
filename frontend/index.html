@@ -421,6 +421,23 @@
       recording ? stopRecording() : await startRecording();
     }
 
+    // Resample float32 audio from any rate down to 16kHz for Whisper
+    function resampleTo16k(input, fromRate) {
+      if (fromRate === 16000) return input;
+      const ratio = fromRate / 16000;
+      const outputLen = Math.round(input.length / ratio);
+      const output = new Float32Array(outputLen);
+      for (let i = 0; i < outputLen; i++) {
+        const pos = i * ratio;
+        const idx = Math.floor(pos);
+        const frac = pos - idx;
+        const a = input[idx] || 0;
+        const b = input[Math.min(idx + 1, input.length - 1)] || 0;
+        output[i] = a + frac * (b - a);
+      }
+      return output;
+    }
+
     async function startRecording() {
       try {
         micStream = await navigator.mediaDevices.getUserMedia({
@@ -430,14 +447,20 @@
         setStatus("Mic access denied — check System Settings → Privacy → Microphone");
         return;
       }
-      audioCtx = new AudioContext({ sampleRate: 16000 });
+      // Let browser use its native rate — we resample manually to avoid
+      // Windows Chrome ignoring the 16000Hz hint and sending wrong-rate audio
+      audioCtx = new AudioContext();
+      const nativeRate = audioCtx.sampleRate;
       const source = audioCtx.createMediaStreamSource(micStream);
       processor = audioCtx.createScriptProcessor(4096, 1, 1);
       source.connect(processor);
       processor.connect(audioCtx.destination);
       processor.onaudioprocess = (e) => {
-        if (ws && ws.readyState === WebSocket.OPEN)
-          ws.send(e.inputBuffer.getChannelData(0).buffer);
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          const raw = new Float32Array(e.inputBuffer.getChannelData(0));
+          const chunk = resampleTo16k(raw, nativeRate);
+          ws.send(chunk.buffer);
+        }
       };
       recording = true;
       document.getElementById("micBtn").classList.add("recording");
