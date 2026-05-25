@@ -115,16 +115,24 @@ fi
 cat > "$INSTALL_DIR/start.sh" << 'STARTSCRIPT'
 #!/bin/bash
 cd "$(dirname "$0")"
-echo "Starting NarrateRad..."
-uv run uvicorn main:app --port 8000 --ws-ping-interval 20 --ws-ping-timeout 60 &
+echo "Starting NarrateMed..."
+uv run uvicorn main:app --port 8000 --ws-ping-interval 10 --ws-ping-timeout 30 &
 SERVER_PID=$!
 sleep 2
 open http://localhost:8000
-echo "NarrateRad running at http://localhost:8000"
+echo "NarrateMed running at http://localhost:8000"
 echo "Press Ctrl+C to stop."
 wait $SERVER_PID
 STARTSCRIPT
 chmod +x "$INSTALL_DIR/start.sh"
+
+# ── Desktop app icon ──────────────────────────────────────────
+echo ""
+echo "Creating Desktop icon..."
+osacompile -o "$HOME/Desktop/NarrateMed.app" -e "tell application \"Terminal\"
+activate
+do script \"cd $INSTALL_DIR && ./start.sh\"
+end tell" 2>/dev/null && echo -e "${GREEN}✓${NC} NarrateMed icon added to Desktop" || echo "Skipped desktop icon"
 
 # ── Done ──────────────────────────────────────────────────────
 echo ""
